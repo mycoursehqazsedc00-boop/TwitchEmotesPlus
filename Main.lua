@@ -13,6 +13,7 @@ C:Register("picker", function(c)
 	return TEP.NewPicker({
 		catalog   = c:Resolve("emoteCatalog"),
 		kaomoji   = c:Resolve("kaomojiSource"),
+		yahoo     = c:Resolve("yahooSource"),
 		resolver  = c:Resolve("textureResolver"),
 		inserter  = c:Resolve("inserter"),
 		clipboard = c:Resolve("clipboard"),

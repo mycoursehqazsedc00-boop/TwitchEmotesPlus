@@ -1,12 +1,16 @@
 -- TwitchEmotes+ : UI/Picker.lua
--- Two separate dropdowns at the top, "Twitch Emote" and "Kaomoji". Each opens a
--- scrolling menu of containers (emote packs / kaomoji categories). The chosen
--- container fills a virtualized grid below (only ~80 buttons exist however many
--- emotes there are). Search, recent items and an ASCII-only kaomoji filter.
+-- Three separate dropdowns at the top: "Twitch Emote", "Kaomoji" and "Yahoo".
+-- Each opens a scrolling menu of containers (emote packs / categories). The
+-- chosen container fills a virtualized grid below (only ~80 buttons exist
+-- however many emotes there are). Search, recent items, ASCII-only kaomoji.
+--
+-- Twitch priority: a Yahoo code is checked against every Twitch emote code
+-- (exact match, then ignoring case). On a match the picker shows and inserts
+-- the Twitch emote instead of the Yahoo text.
 --
 -- NewPicker(deps) takes everything it needs by injection and touches no
--- upstream global; deps = { catalog, kaomoji, resolver, inserter, clipboard,
--- db, print }.
+-- upstream global; deps = { catalog, kaomoji, yahoo, resolver, inserter,
+-- clipboard, db, print }.
 --
 -- Script handlers read both positional args and the this/arg1 globals, so they
 -- work whether or not ClassicAPI's modern script args are switched on.
@@ -17,13 +21,16 @@ local POOL = 80
 local GRID_W, GRID_H = 360, 288
 local MENU_ROWS, MENU_ROW_H, MENU_W = 12, 18, 196
 local LAYOUTS = {
-	emote = { cols = 10, cw = 36, ch = 36 },
+	emote = { cols = 10, cw = 36,  ch = 36 },
 	kao   = { cols = 3,  cw = 120, ch = 24 },
+	yahoo = { cols = 5,  cw = 72,  ch = 24 },
 }
-LAYOUTS.emote.rows = math.floor(GRID_H / LAYOUTS.emote.ch)
-LAYOUTS.kao.rows   = math.floor(GRID_H / LAYOUTS.kao.ch)
+for _, L in pairs(LAYOUTS) do L.rows = math.floor(GRID_H / L.ch) end
 
-local GROUP_LABEL = { emote = "Twitch Emote", kao = "Kaomoji" }
+local GROUPS = { "emote", "kao", "yahoo" }
+local GROUP_LABEL = { emote = "Twitch Emote", kao = "Kaomoji", yahoo = "Yahoo" }
+local GROUP_NOUN  = { emote = "emotes", kao = "kaomoji", yahoo = "Yahoo codes" }
+local RECENT_KEY  = { emote = "recentEmotes", kao = "recentKao", yahoo = "recentYahoo" }
 local RECENT_MAX = 30
 
 local PANEL_BACKDROP = {
@@ -121,9 +128,10 @@ function TEP.NewPicker(deps)
 	local db = deps.db
 
 	local cat            -- emote catalog
-	local kaoCats        -- kaomoji categories
-	local views = {}     -- every selectable container, both groups
-	local kaoByText, allKao = {}, {}
+	local lcMap = {}     -- lower-case Twitch code -> catalog item (for Yahoo priority)
+	local views = {}     -- every selectable container, all groups
+	local byText = { kao = {}, yahoo = {} }
+	local allOf  = { kao = {}, yahoo = {} }
 	local cur            -- selected container
 	local query = ""
 	local shown = {}     -- items currently in the grid (after search)
@@ -168,7 +176,7 @@ function TEP.NewPicker(deps)
 	-- dropdown buttons ---------------------------------------------------------
 	local function NewDropButton(x)
 		local b = CreateFrame("Button", nil, frame)
-		b:SetWidth(186)
+		b:SetWidth(126)
 		b:SetHeight(22)
 		b:SetPoint("TOPLEFT", frame, "TOPLEFT", x, -34)
 		b:SetBackdrop(PANEL_BACKDROP)
@@ -188,18 +196,20 @@ function TEP.NewPicker(deps)
 	end
 	local dropBtn = {
 		emote = NewDropButton(14),
-		kao   = NewDropButton(204),
+		kao   = NewDropButton(144),
+		yahoo = NewDropButton(274),
 	}
 
+	-- the active group's button turns gold; the container name is in the footer
 	local function updateButtons()
-		for kind, b in pairs(dropBtn) do
+		for _, kind in ipairs(GROUPS) do
+			local b = dropBtn[kind]
+			b.text:SetText(GROUP_LABEL[kind])
 			if cur and cur.kind == kind then
-				b.text:SetText(GROUP_LABEL[kind] .. ": " .. cur.name)
 				b.text:SetTextColor(1, 0.82, 0)
 				b:SetBackdropColor(0.22, 0.18, 0.05, 0.95)
 				b:SetBackdropBorderColor(1, 0.82, 0, 1)
 			else
-				b.text:SetText(GROUP_LABEL[kind])
 				b.text:SetTextColor(0.85, 0.85, 0.85)
 				b:SetBackdropColor(0.12, 0.12, 0.15, 0.95)
 				b:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
@@ -231,14 +241,22 @@ function TEP.NewPicker(deps)
 	if asciiText then asciiText:SetText("ASCII-only kaomoji") end
 
 	-- grid cells ---------------------------------------------------------------
+	-- A Yahoo cell whose code matches a Twitch emote shows and inserts that emote.
+	local function emoteOf(b)
+		if b.kind == "emote" then return b.item end
+		if b.kind == "yahoo" then return b.item.twitch end
+		return nil
+	end
+
 	local function textOf(b)
 		if not b.item then return nil end
-		if b.kind == "emote" then return b.item.code end
+		local em = emoteOf(b)
+		if em then return em.code end
 		return b.item.text
 	end
 
 	local function remember(kind, text)
-		local key = (kind == "emote") and "recentEmotes" or "recentKao"
+		local key = RECENT_KEY[kind]
 		local list = db[key]
 		if not list then list = {}; db[key] = list end
 		for i = #list, 1, -1 do
@@ -262,7 +280,8 @@ function TEP.NewPicker(deps)
 		end
 		deps.inserter.Insert(text .. " ", stash)
 		stash = nil
-		remember(b.kind, text)
+		-- recents of the text groups are keyed by the original code, not the emote that replaced it
+		remember(b.kind, (b.kind == "emote") and text or b.item.text)
 	end
 
 	local function onCellEnter(b)
@@ -271,8 +290,12 @@ function TEP.NewPicker(deps)
 		if b.kind == "emote" then
 			GameTooltip:SetText(b.item.code, 1, 0.82, 0)
 		else
-			GameTooltip:SetText(b.item.label or "kaomoji", 1, 0.82, 0)
+			GameTooltip:SetText(b.item.label or GROUP_LABEL[b.kind], 1, 0.82, 0)
 			GameTooltip:AddLine(b.item.text, 1, 1, 1)
+			local em = emoteOf(b)
+			if em then
+				GameTooltip:AddLine("Twitch emote " .. em.code .. " takes priority.", 0.4, 1, 0.4)
+			end
 		end
 		GameTooltip:AddLine("Click: insert. Shift-click: copy.", 0.7, 0.7, 0.7)
 		GameTooltip:Show()
@@ -280,9 +303,10 @@ function TEP.NewPicker(deps)
 
 	local function bindCell(b, item, kind)
 		b.item, b.kind = item, kind
-		if kind == "emote" then
+		local em = emoteOf(b)
+		if em then
 			b.lbl:Hide()
-			local tx = deps.resolver.Resolve(item.key)
+			local tx = deps.resolver.Resolve(em.key)
 			if tx then
 				b.ico:SetTexture(tx.path)
 				b.ico:SetTexCoord(tx.l, tx.r, tx.t, tx.b)
@@ -465,7 +489,7 @@ function TEP.NewPicker(deps)
 			if v.kind == group then menuItems[#menuItems + 1] = v end
 		end
 		if #menuItems == 0 then
-			menuItems[1] = { header = (group == "emote") and "(TwitchEmotes data not found)" or "(no kaomoji to show)" }
+			menuItems[1] = { header = (group == "emote") and "(TwitchEmotes data not found)" or "(nothing to show)" }
 		end
 		menuGroup = group
 		menuScroll:SetMax(math.max(0, #menuItems - MENU_ROWS))
@@ -480,10 +504,17 @@ function TEP.NewPicker(deps)
 		RefreshMenu()
 	end
 
-	dropBtn.emote:SetScript("OnClick", function() OpenMenu("emote") end)
-	dropBtn.kao:SetScript("OnClick", function() OpenMenu("kao") end)
+	for _, kind in ipairs(GROUPS) do
+		dropBtn[kind]:SetScript("OnClick", function() OpenMenu(kind) end)
+	end
 
 	-- data -------------------------------------------------------------------
+	-- Twitch priority: exact code first, then ignoring case.
+	local function findTwitch(code)
+		if not cat or not cat.available then return nil end
+		return cat.byCode[code] or lcMap[string.lower(code)]
+	end
+
 	local function itemsOf(view)
 		if view.recent then
 			local out = {}
@@ -493,8 +524,8 @@ function TEP.NewPicker(deps)
 				if view.kind == "emote" then
 					it = cat.byCode[list[i]]
 				else
-					it = kaoByText[list[i]]
-					if it and db.asciiOnly and not it.ascii then it = nil end
+					it = byText[view.kind][list[i]]
+					if it and view.kind == "kao" and db.asciiOnly and not it.ascii then it = nil end
 				end
 				if it then out[#out + 1] = it end
 			end
@@ -503,10 +534,47 @@ function TEP.NewPicker(deps)
 		return view.items
 	end
 
+	-- adds the containers of one text group (kaomoji or Yahoo) to `views`
+	local function addTextGroup(kind, cats, applyAscii)
+		local own = {}
+		local seen = {}      -- a code can live in several containers; list it once in "All"
+		byText[kind] = {}
+		allOf[kind] = {}
+		for _, c in ipairs(cats or {}) do
+			local items = {}
+			for _, it in ipairs(c.items) do
+				byText[kind][it.text] = it
+				if kind == "yahoo" then it.twitch = findTwitch(it.text) end
+				if not (applyAscii and db.asciiOnly) or it.ascii then
+					items[#items + 1] = it
+					if not seen[it.text] then
+						seen[it.text] = true
+						allOf[kind][#allOf[kind] + 1] = it
+					end
+				end
+			end
+			if #items > 0 then
+				own[#own + 1] = { id = kind .. "/cat/" .. c.name, kind = kind, name = c.name,
+				                  label = c.name .. " (" .. #items .. ")", items = items }
+			end
+		end
+		local all = allOf[kind]
+		views[#views + 1] = { id = kind .. "/recent", kind = kind, name = "Recent", recent = RECENT_KEY[kind] }
+		if #all > 0 then
+			views[#views + 1] = { id = kind .. "/all", kind = kind, name = "All " .. GROUP_NOUN[kind],
+			                      label = "All " .. GROUP_NOUN[kind] .. " (" .. #all .. ")", items = all }
+		end
+		for _, v in ipairs(own) do views[#views + 1] = v end
+	end
+
 	local function buildViews()
 		cat = deps.catalog.Get()
-		kaoCats = deps.kaomoji.Get()
-		views, kaoByText, allKao = {}, {}, {}
+		views = {}
+
+		lcMap = {}
+		for _, it in ipairs(cat.all) do
+			if not lcMap[it.lc] then lcMap[it.lc] = it end
+		end
 
 		if cat.available then
 			views[#views + 1] = { id = "emote/recent", kind = "emote", name = "Recent", recent = "recentEmotes" }
@@ -518,31 +586,8 @@ function TEP.NewPicker(deps)
 			end
 		end
 
-		local kaoViews = {}
-		local seen = {}      -- a code can live in several categories; list it once in "All"
-		for _, c in ipairs(kaoCats) do
-			local items = {}
-			for _, it in ipairs(c.items) do
-				kaoByText[it.text] = it
-				if not db.asciiOnly or it.ascii then
-					items[#items + 1] = it
-					if not seen[it.text] then
-						seen[it.text] = true
-						allKao[#allKao + 1] = it
-					end
-				end
-			end
-			if #items > 0 then
-				kaoViews[#kaoViews + 1] = { id = "kao/cat/" .. c.name, kind = "kao", name = c.name,
-				                            label = c.name .. " (" .. #items .. ")", items = items }
-			end
-		end
-		views[#views + 1] = { id = "kao/recent", kind = "kao", name = "Recent", recent = "recentKao" }
-		if #allKao > 0 then
-			views[#views + 1] = { id = "kao/all", kind = "kao", name = "All kaomoji",
-			                      label = "All kaomoji (" .. #allKao .. ")", items = allKao }
-		end
-		for _, v in ipairs(kaoViews) do views[#views + 1] = v end
+		addTextGroup("kao", deps.kaomoji and deps.kaomoji.Get(), true)
+		addTextGroup("yahoo", deps.yahoo and deps.yahoo.Get(), false)
 	end
 
 	local function findView(id)
@@ -552,7 +597,7 @@ function TEP.NewPicker(deps)
 	end
 
 	local function firstView()
-		return findView("emote/all") or findView("kao/all") or findView("kao/recent")
+		return findView("emote/all") or findView("kao/all") or findView("yahoo/all") or findView("kao/recent")
 	end
 
 	local function filter(items, q)
@@ -570,7 +615,7 @@ function TEP.NewPicker(deps)
 		applyLayout(cur.kind)
 		local base
 		if query ~= "" then
-			base = (cur.kind == "emote") and cat.all or allKao
+			base = (cur.kind == "emote") and cat.all or allOf[cur.kind]
 		else
 			base = itemsOf(cur)
 		end
@@ -581,7 +626,7 @@ function TEP.NewPicker(deps)
 		RefreshGrid()
 		updateButtons()
 		if query ~= "" then
-			footer:SetText("Search in all " .. ((cur.kind == "emote") and "emotes" or "kaomoji") .. ": " .. #shown .. " found")
+			footer:SetText("Search in all " .. GROUP_NOUN[cur.kind] .. ": " .. #shown .. " found")
 		else
 			footer:SetText(GROUP_LABEL[cur.kind] .. " / " .. cur.name .. ": " .. #shown .. ". Click inserts, shift-click copies.")
 		end
