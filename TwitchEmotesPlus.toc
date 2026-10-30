@@ -1,0 +1,7 @@
+## Interface: 11200
+## Title: TwitchEmotes+ (MISSING CLASSICAPI)
+## Notes: If you're seeing this, ClassicAPI has failed to load.
+## Author: companion add-on for TwitchEmotes
+## Version: 1.0.0
+
+Gate.lua

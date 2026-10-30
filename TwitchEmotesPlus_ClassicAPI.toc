@@ -1,0 +1,15 @@
+## Interface: 11200
+## Title: |cffff7fd0TwitchEmotes+|r
+## Notes: Scrolling emote picker button and kaomoji for TwitchEmotes. Standalone companion - never edits TwitchEmotes files.
+## Author: companion add-on for TwitchEmotes
+## Version: 1.0.0
+## OptionalDeps: TwitchEmotes
+## SavedVariables: TwitchEmotesPlusDB
+
+Core\Container.lua
+Adapters\Upstream.lua
+Adapters\ClientMods.lua
+Data\Kaomoji.lua
+UI\Picker.lua
+UI\Launcher.lua
+Main.lua
