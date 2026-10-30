@@ -8,7 +8,7 @@ A companion add-on for [TwitchEmotes](https://github.com/brues-code/TwitchEmotes
 |---|---|
 | [`ClassicAPI.dll`](https://github.com/brues-code/ClassicAPI) | The Lua 5.1 syntax the add-on is written in, positional script arguments, and `CopyToClipboard` (shift-click copies). Without it only a tiny `Gate.lua` loads and prints a one-line warning, the same way TwitchEmotes gates itself. |
 
-That is the only client mod used. TwitchEmotes itself is optional: without it the kaomoji half still works, and the emote packs need it.
+That is the only client mod used. TwitchEmotes states which ClassicAPI version it needs in its own README; check it there, since that changes between releases. TwitchEmotes itself is optional: without it the kaomoji half still works, and the emote packs need it.
 
 ## Screenshots
 
@@ -20,7 +20,7 @@ That is the only client mod used. TwitchEmotes itself is optional: without it th
 
 ![Twitch Emote picker showing the All emotes container](screenshots/emote-picker.png)
 
-**Kaomoji dropdown.** 101 kaomoji in 11 categories. Plain-ASCII ones render in any font; see [Kaomoji and fonts](#kaomoji-and-fonts) for the others.
+**Kaomoji dropdown.** Kaomoji and classic text smileys in categories. Plain-ASCII ones render in any font; see [Kaomoji and fonts](#kaomoji-and-fonts) for the others.
 
 ![Kaomoji picker showing the All kaomoji container](screenshots/kaomoji-picker.png)
 
@@ -29,13 +29,14 @@ That is the only client mod used. TwitchEmotes itself is optional: without it th
 - **Picker button** beside the chat edit box. It shows while you are typing; `/tep always` keeps it visible.
 - **Two separate dropdowns**, **Twitch Emote** and **Kaomoji**, each opening a scrolling menu of containers.
   - *Twitch Emote*: Recent, All emotes, then one container per emote pack.
-  - *Kaomoji*: Recent, All kaomoji, then one container per category: Happy, Love, Sad, Angry, Surprised, Shy, Shrug and meh, Animals, Actions, Table flip, Greetings.
+  - *Kaomoji*: Recent, All kaomoji, then one container per category: Happy, Excited, Love, Sad, Angry, Surprised, Confused, Shy, Shrug and meh, Cool and sleepy, Animals, Actions, Table flip, Greetings, Classic smileys, Objects, Extended (needs glyphs).
 - **Virtualized grid.** Only about 80 buttons exist however many emotes are installed, so thousands of emotes scroll smoothly with the mouse wheel or the slider. Long dropdown menus scroll the same way.
 - **Packs discovered automatically** from the folder each emote lives in, so packs added by future TwitchEmotes releases show up with no change here.
 - **Animated icons** in the grid for sprite-sheet emotes, using the same frame layout as TwitchEmotes.
-- **Search** across all emotes, or all kaomoji, depending on which dropdown is active. Kaomoji are searchable by meaning (`shrug`, `hug`, `flip`).
+- **Search** across all emotes, or all kaomoji, depending on which dropdown is active. Kaomoji are searchable by meaning (`shrug`, `hug`, `flip`, `cat`).
+- **256 kaomoji and text smileys in 17 categories**, mostly plain ASCII because that is what the default fonts can draw.
 - **Recent** emotes and kaomoji, remembered between sessions.
-- **ASCII-only filter** that hides kaomoji needing special glyphs (44 of the 101 are plain ASCII).
+- **ASCII-only filter** that hides kaomoji needing special glyphs (191 of the 256 are plain ASCII).
 - **Click to insert** at the cursor, **shift-click to copy** to the Windows clipboard.
 - **Edit box recovery.** If the chat edit box closes when you click into the search field, what you had typed is restored when you pick something.
 
@@ -52,7 +53,19 @@ That is the only client mod used. TwitchEmotes itself is optional: without it th
 
 The default 1.12 fonts contain no Japanese or symbol glyphs. In the screenshot above, plain-ASCII kaomoji such as `(T_T)`, `(>_<)` and `orz` render correctly, while characters outside ASCII (kana, hearts, many symbols) can show blank or wrong. The same applies in chat: the kaomoji are sent as UTF-8 and display correctly only where the chat font has the glyphs.
 
-Use the **ASCII-only kaomoji** checkbox (or `/tep ascii`) to hide the 57 that need special glyphs. A chat font with wider glyph coverage makes them render.
+Use the **ASCII-only kaomoji** checkbox (or `/tep ascii`) to hide the 65 that need special glyphs. A chat font with wider glyph coverage makes them render.
+
+## Adding more emotes
+
+Emote art comes from TwitchEmotes, so new emotes are added there, not here. TwitchEmotes ships an installer that takes a BetterTTV emote, converts it to a texture the 1.12 client can decode, and registers it:
+
+```
+python tools/add_emote.py https://betterttv.com/emotes/<id> PepeCool
+```
+
+TwitchEmotes+ builds its lists from TwitchEmotes' own tables each session, so emotes added that way (and new packs from future releases) should appear in the Twitch Emote dropdown after a `/reload`, with no change here.
+
+New kaomoji go in `Data/Kaomoji.lua`, or can be supplied by another add-on by overriding the `kaomojiSource` service (see below).
 
 ## Built to survive upstream updates
 
@@ -90,7 +103,7 @@ If a future TwitchEmotes release renames one of those globals, override `upstrea
 |---|---|---|
 | Picker | nested dropdown from the minimap button, paged in 40s | two dropdowns (Twitch Emote, Kaomoji) with scrolling container menus, grid, search, recent, animated icons |
 | Entry point | minimap button | button on the chat edit box (minimap button unchanged) |
-| Kaomoji | none | 101, categorised and searchable |
+| Kaomoji | none | 256, categorised and searchable |
 | Copy to clipboard | no | shift-click |
 | Edits to upstream files | n/a | none |
 
