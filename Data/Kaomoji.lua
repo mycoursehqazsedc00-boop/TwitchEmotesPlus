@@ -5,9 +5,13 @@
 -- need a font with the glyphs (see README "Kaomoji and fonts"). The default
 -- 1.12 fonts lack most kana and symbols, so the bulk of this list is ASCII.
 --
--- Rules for entries: no pipe character (WoW treats it as an escape prefix in
--- chat), and no codes upstream TwitchEmotes already owns as emotes ("D:",
--- "o_O", "O_o"), which it would turn into images in chat.
+-- Rules for entries: no pipe or percent character (WoW treats them specially
+-- in chat), and no codes upstream TwitchEmotes already owns as emotes ("D:",
+-- "o_O", "O_o"), which it would turn into images in chat. The "Yahoo
+-- Messenger" category holds that client's classic text codes; some start with
+-- ":" followed by two or more characters, which TwitchEmotes' own ":" autocomplete
+-- may react to. A code can appear in more than one category; the picker lists
+-- it once in "All kaomoji".
 --
 -- Third parties can replace or extend this with
 --   TwitchEmotesPlus.Container:Override("kaomojiSource", function() ... end)
@@ -121,6 +125,29 @@ local CATEGORIES = {
 		{ ">:)", "evil grin" }, { ">:D", "evil laugh" }, { "O:)", "innocent angel" }, { "^^", "happy" },
 		{ "^_^", "happy" }, { "-_-", "unimpressed" }, { ">_>", "side glance right" }, { "<_<", "side glance left" },
 		{ "0_0", "wide eyes" },
+	} },
+	{ name = "Yahoo Messenger", items = {
+		{ ":)", "happy" }, { ":(", "sad" }, { ";)", "winking" }, { ":D", "big grin" },
+		{ ";;)", "batting eyelashes" }, { ">:D<", "big hug" }, { ":-/", "confused" }, { ":x", "love struck" },
+		{ ":\">", "blushing" }, { ":P", "tongue out" }, { ":-*", "kiss" }, { "=((", "broken heart" },
+		{ ":-O", "surprise" }, { "X(", "angry" }, { ":>", "smug" }, { "B-)", "cool" },
+		{ ":-S", "worried" }, { "#:-S", "whew" }, { ">:)", "devil" }, { ":((", "crying" },
+		{ ":))", "laughing" }, { "/:)", "raised eyebrow" }, { "=))", "rolling on the floor" }, { "O:-)", "angel" },
+		{ ":-B", "nerd" }, { "=;", "talk to the hand" }, { "I-)", "sleepy" }, { "L-)", "loser" },
+		{ ":-&", "sick" }, { ":-$", "keep it secret" }, { "[-(", "not talking" }, { ":O)", "clown" },
+		{ "8-}", "silly" }, { "<:-P", "party" }, { "=P~", "drooling" }, { ":-?", "thinking" },
+		{ "#-o", "d'oh" }, { "=D>", "applause" }, { ":-SS", "nail biting" }, { "@-)", "hypnotized" },
+		{ ":^o", "liar" }, { ":-w", "waiting" }, { ":-<", "sigh" }, { ">:P", "raspberry" },
+		{ "<):)", "cowboy" }, { ":@)", "pig" }, { "3:-O", "cow" }, { "~:>", "chicken" },
+		{ "@};-", "rose" }, { "**==", "flag" }, { "~O)", "coffee" }, { "*-:)", "idea" },
+		{ "8-X", "skull" }, { "=:)", "bug" }, { ">-)", "alien" }, { ":-L", "frustrated" },
+		{ "[-O<", "praying" }, { "$-)", "money eyes" }, { ":-\"", "whistling" }, { "b-(", "beat up" },
+		{ ":-c", "call me" }, { ":)]", "on the phone" }, { "~X(", "at wits end" }, { ":-h", "wave" },
+		{ ":-t", "time out" }, { "8->", "daydreaming" }, { ":-??", "i dont know" }, { ":o3", "puppy dog eyes" },
+		{ "x_x", "cant look" }, { ":!!", "hurry up" }, { ":-q", "thumbs down" }, { ":-bd", "thumbs up" },
+		{ "^#(^", "it wasnt me" }, { ":bz", "bee" }, { ";))", "hee hee" }, { ":-@", "chatterbox" },
+		{ ":-j", "oh go on" }, { "(*)", "star" }, { ">:/", "bring it on" }, { "^:)^", "not worthy" },
+		{ "\\m/", "rock on" },
 	} },
 	{ name = "Objects", items = {
 		{ "@}->--", "rose" }, { "@};-", "rose" }, { "c[_]", "coffee" }, { "d[-_-]b", "headphones" },

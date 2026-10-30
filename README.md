@@ -29,14 +29,14 @@ That is the only client mod used. TwitchEmotes states which ClassicAPI version i
 - **Picker button** beside the chat edit box. It shows while you are typing; `/tep always` keeps it visible.
 - **Two separate dropdowns**, **Twitch Emote** and **Kaomoji**, each opening a scrolling menu of containers.
   - *Twitch Emote*: Recent, All emotes, then one container per emote pack.
-  - *Kaomoji*: Recent, All kaomoji, then one container per category: Happy, Excited, Love, Sad, Angry, Surprised, Confused, Shy, Shrug and meh, Cool and sleepy, Animals, Actions, Table flip, Greetings, Classic smileys, Objects, Extended (needs glyphs).
+  - *Kaomoji*: Recent, All kaomoji, then one container per category: Happy, Excited, Love, Sad, Angry, Surprised, Confused, Shy, Shrug and meh, Cool and sleepy, Animals, Actions, Table flip, Greetings, Classic smileys, Yahoo Messenger, Objects, Extended (needs glyphs).
 - **Virtualized grid.** Only about 80 buttons exist however many emotes are installed, so thousands of emotes scroll smoothly with the mouse wheel or the slider. Long dropdown menus scroll the same way.
 - **Packs discovered automatically** from the folder each emote lives in, so packs added by future TwitchEmotes releases show up with no change here.
 - **Animated icons** in the grid for sprite-sheet emotes, using the same frame layout as TwitchEmotes.
 - **Search** across all emotes, or all kaomoji, depending on which dropdown is active. Kaomoji are searchable by meaning (`shrug`, `hug`, `flip`, `cat`).
-- **256 kaomoji and text smileys in 17 categories**, mostly plain ASCII because that is what the default fonts can draw.
+- **327 kaomoji and text smileys in 18 categories**, mostly plain ASCII because that is what the default fonts can draw. The **Yahoo Messenger** category holds that client's classic text codes (`>:D<` hug, `=))` rolling on the floor, `:-bd` thumbs up and so on); they are inserted as text, not as Yahoo's yellow face images. Codes containing `|` or `%` are left out because WoW chat treats those characters specially.
 - **Recent** emotes and kaomoji, remembered between sessions.
-- **ASCII-only filter** that hides kaomoji needing special glyphs (191 of the 256 are plain ASCII).
+- **ASCII-only filter** that hides kaomoji needing special glyphs (262 of the 327 are plain ASCII).
 - **Click to insert** at the cursor, **shift-click to copy** to the Windows clipboard.
 - **Edit box recovery.** If the chat edit box closes when you click into the search field, what you had typed is restored when you pick something.
 
@@ -103,7 +103,7 @@ If a future TwitchEmotes release renames one of those globals, override `upstrea
 |---|---|---|
 | Picker | nested dropdown from the minimap button, paged in 40s | two dropdowns (Twitch Emote, Kaomoji) with scrolling container menus, grid, search, recent, animated icons |
 | Entry point | minimap button | button on the chat edit box (minimap button unchanged) |
-| Kaomoji | none | 256, categorised and searchable |
+| Kaomoji | none | 327, categorised and searchable |
 | Copy to clipboard | no | shift-click |
 | Edits to upstream files | n/a | none |
 

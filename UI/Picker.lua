@@ -519,13 +519,17 @@ function TEP.NewPicker(deps)
 		end
 
 		local kaoViews = {}
+		local seen = {}      -- a code can live in several categories; list it once in "All"
 		for _, c in ipairs(kaoCats) do
 			local items = {}
 			for _, it in ipairs(c.items) do
 				kaoByText[it.text] = it
 				if not db.asciiOnly or it.ascii then
 					items[#items + 1] = it
-					allKao[#allKao + 1] = it
+					if not seen[it.text] then
+						seen[it.text] = true
+						allKao[#allKao + 1] = it
+					end
 				end
 			end
 			if #items > 0 then
