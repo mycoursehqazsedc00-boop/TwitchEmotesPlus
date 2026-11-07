@@ -5,8 +5,9 @@
 -- however many emotes there are). Search, recent items, ASCII-only kaomoji.
 --
 -- Twitch priority: a Yahoo code is checked against every Twitch emote code
--- (exact match, then ignoring case). On a match the picker shows and inserts
--- the Twitch emote instead of the Yahoo text.
+-- (exact match, then ignoring case). On a match the Yahoo icon is deleted from
+-- the Yahoo dropdown (the emote lives under Twitch Emote) and the footer says
+-- how many were removed.
 --
 -- NewPicker(deps) takes everything it needs by injection and touches no
 -- upstream global; deps = { catalog, kaomoji, yahoo, resolver, inserter,
@@ -23,7 +24,7 @@ local MENU_ROWS, MENU_ROW_H, MENU_W = 12, 18, 196
 local LAYOUTS = {
 	emote = { cols = 10, cw = 36,  ch = 36 },
 	kao   = { cols = 3,  cw = 120, ch = 24 },
-	yahoo = { cols = 5,  cw = 72,  ch = 24 },
+	yahoo = { cols = 5,  cw = 72,  ch = 40 },
 }
 for _, L in pairs(LAYOUTS) do L.rows = math.floor(GRID_H / L.ch) end
 
@@ -130,6 +131,7 @@ function TEP.NewPicker(deps)
 	local cat            -- emote catalog
 	local lcMap = {}     -- lower-case Twitch code -> catalog item (for Yahoo priority)
 	local views = {}     -- every selectable container, all groups
+	local yahooHidden = {}   -- Yahoo codes removed because a Twitch emote has the same code
 	local byText = { kao = {}, yahoo = {} }
 	local allOf  = { kao = {}, yahoo = {} }
 	local cur            -- selected container
@@ -142,7 +144,7 @@ function TEP.NewPicker(deps)
 	-- frame ------------------------------------------------------------------
 	local frame = CreateFrame("Frame", "TwitchEmotesPlusPicker", UIParent)
 	frame:SetWidth(404)
-	frame:SetHeight(424)
+	frame:SetHeight(436)
 	frame:SetFrameStrata("DIALOG")
 	frame:SetClampedToScreen(true)
 	frame:SetMovable(true)
@@ -230,7 +232,9 @@ function TEP.NewPicker(deps)
 	search:SetMaxLetters(40)
 
 	local footer = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 30)
+	footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 32)
+	footer:SetWidth(376)
+	footer:SetJustifyH("LEFT")
 	footer:SetTextColor(0.7, 0.7, 0.7)
 
 	local ascii = CreateFrame("CheckButton", "TwitchEmotesPlusASCII", frame, "UICheckButtonTemplate")
@@ -241,10 +245,11 @@ function TEP.NewPicker(deps)
 	if asciiText then asciiText:SetText("ASCII-only kaomoji") end
 
 	-- grid cells ---------------------------------------------------------------
-	-- A Yahoo cell whose code matches a Twitch emote shows and inserts that emote.
+	-- a lone pipe in displayed text would be read as an escape; "||" shows one
+	local function disp(text) return (string.gsub(text, "|", "||")) end
+
 	local function emoteOf(b)
 		if b.kind == "emote" then return b.item end
-		if b.kind == "yahoo" then return b.item.twitch end
 		return nil
 	end
 
@@ -278,7 +283,9 @@ function TEP.NewPicker(deps)
 			end
 			return
 		end
-		deps.inserter.Insert(text .. " ", stash)
+		-- a literal pipe travels as "||" in WoW chat, so insert that form (copying keeps one)
+		local wireText = (string.gsub(text, "|", "||"))
+		deps.inserter.Insert(wireText .. " ", stash)
 		stash = nil
 		-- recents of the text groups are keyed by the original code, not the emote that replaced it
 		remember(b.kind, (b.kind == "emote") and text or b.item.text)
@@ -291,14 +298,20 @@ function TEP.NewPicker(deps)
 			GameTooltip:SetText(b.item.code, 1, 0.82, 0)
 		else
 			GameTooltip:SetText(b.item.label or GROUP_LABEL[b.kind], 1, 0.82, 0)
-			GameTooltip:AddLine(b.item.text, 1, 1, 1)
-			local em = emoteOf(b)
-			if em then
-				GameTooltip:AddLine("Twitch emote " .. em.code .. " takes priority.", 0.4, 1, 0.4)
-			end
+			GameTooltip:AddLine(disp(b.item.text), 1, 1, 1)
 		end
 		GameTooltip:AddLine("Click: insert. Shift-click: copy.", 0.7, 0.7, 0.7)
 		GameTooltip:Show()
+	end
+
+	local function showImage(b, tx, w, h)
+		b.ico:SetWidth(w)
+		b.ico:SetHeight(h)
+		b.ico:SetTexture(tx.path)
+		b.ico:SetTexCoord(tx.l, tx.r, tx.t, tx.b)
+		b.anim = tx.anim
+		if b.anim then cropToFrame(b.ico, b.anim, clock) end
+		b.ico:Show()
 	end
 
 	local function bindCell(b, item, kind)
@@ -308,19 +321,21 @@ function TEP.NewPicker(deps)
 			b.lbl:Hide()
 			local tx = deps.resolver.Resolve(em.key)
 			if tx then
-				b.ico:SetTexture(tx.path)
-				b.ico:SetTexCoord(tx.l, tx.r, tx.t, tx.b)
-				b.anim = tx.anim
-				if b.anim then cropToFrame(b.ico, b.anim, clock) end
-				b.ico:Show()
+				showImage(b, tx, 28, 28)
 			else
 				b.anim = nil
 				b.ico:Hide()
 			end
+		elseif kind == "yahoo" and item.img then
+			-- Yahoo's own art: up to 2x its native size, smaller for wide or tall images
+			b.lbl:Hide()
+			local im = item.img
+			local f = math.min(2, 66 / im.fw, 36 / im.fh)
+			showImage(b, im, math.floor(im.fw * f + 0.5), math.floor(im.fh * f + 0.5))
 		else
 			b.anim = nil
 			b.ico:Hide()
-			b.lbl:SetText(item.text)
+			b.lbl:SetText(disp(item.text))
 			b.lbl:Show()
 		end
 	end
@@ -526,6 +541,7 @@ function TEP.NewPicker(deps)
 				else
 					it = byText[view.kind][list[i]]
 					if it and view.kind == "kao" and db.asciiOnly and not it.ascii then it = nil end
+					if it and view.kind == "yahoo" and findTwitch(it.text) then it = nil end
 				end
 				if it then out[#out + 1] = it end
 			end
@@ -538,14 +554,20 @@ function TEP.NewPicker(deps)
 	local function addTextGroup(kind, cats, applyAscii)
 		local own = {}
 		local seen = {}      -- a code can live in several containers; list it once in "All"
+		local hiddenSeen = {}
 		byText[kind] = {}
 		allOf[kind] = {}
 		for _, c in ipairs(cats or {}) do
 			local items = {}
 			for _, it in ipairs(c.items) do
 				byText[kind][it.text] = it
-				if kind == "yahoo" then it.twitch = findTwitch(it.text) end
-				if not (applyAscii and db.asciiOnly) or it.ascii then
+				local owned = (kind == "yahoo") and findTwitch(it.text)
+				if owned then
+					if not hiddenSeen[it.text] then
+						hiddenSeen[it.text] = true
+						yahooHidden[#yahooHidden + 1] = it.text
+					end
+				elseif not (applyAscii and db.asciiOnly) or it.ascii then
 					items[#items + 1] = it
 					if not seen[it.text] then
 						seen[it.text] = true
@@ -570,6 +592,7 @@ function TEP.NewPicker(deps)
 	local function buildViews()
 		cat = deps.catalog.Get()
 		views = {}
+		yahooHidden = {}
 
 		lcMap = {}
 		for _, it in ipairs(cat.all) do
@@ -625,10 +648,14 @@ function TEP.NewPicker(deps)
 		gridScroll:SetOffset(0, true)
 		RefreshGrid()
 		updateButtons()
+		local note = ""
+		if cur.kind == "yahoo" and #yahooHidden > 0 then
+			note = " " .. #yahooHidden .. " removed: Twitch emotes have the same code."
+		end
 		if query ~= "" then
-			footer:SetText("Search in all " .. GROUP_NOUN[cur.kind] .. ": " .. #shown .. " found")
+			footer:SetText("Search in all " .. GROUP_NOUN[cur.kind] .. ": " .. #shown .. " found." .. note)
 		else
-			footer:SetText(GROUP_LABEL[cur.kind] .. " / " .. cur.name .. ": " .. #shown .. ". Click inserts, shift-click copies.")
+			footer:SetText(GROUP_LABEL[cur.kind] .. " / " .. cur.name .. ": " .. #shown .. ". Click inserts, shift-click copies." .. note)
 		end
 	end
 

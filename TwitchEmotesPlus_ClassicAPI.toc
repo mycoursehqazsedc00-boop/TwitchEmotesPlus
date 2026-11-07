@@ -11,6 +11,7 @@ Adapters\Upstream.lua
 Adapters\ClientMods.lua
 Data\Kaomoji.lua
 Data\Yahoo.lua
+Adapters\YahooChat.lua
 UI\Picker.lua
 UI\Launcher.lua
 Main.lua
